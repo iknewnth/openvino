@@ -11,6 +11,8 @@
 
 #include "infer_request_wrap.hpp"
 
+#include "remote_helper.hpp"
+
 template<typename T>
 static bool isImage(const T &blob) {
     auto descriptor = blob->getTensorDesc();
@@ -32,6 +34,12 @@ static bool isImageInfo(const T &blob) {
 }
 
 void fillBlobs(const std::vector<std::string>& inputFiles,
+               const size_t& batchSize,
+               const InferenceEngine::ConstInputsDataMap& info,
+               std::vector<InferReqWrap::Ptr> requests);
+
+void fillRemoteBlobs(RemoteHelper& remoteIE,
+               const std::vector<std::string>& inputFiles,
                const size_t& batchSize,
                const InferenceEngine::ConstInputsDataMap& info,
                std::vector<InferReqWrap::Ptr> requests);

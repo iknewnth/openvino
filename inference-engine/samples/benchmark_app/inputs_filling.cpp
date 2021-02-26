@@ -12,6 +12,8 @@
 #include <samples/slog.hpp>
 
 #include "inputs_filling.hpp"
+#include "../../src/plugin_api/blob_factory.hpp"
+#include "utils.hpp"
 
 using namespace InferenceEngine;
 
@@ -324,3 +326,100 @@ void fillBlobs(const std::vector<std::string>& inputFiles,
         }
     }
 }
+
+#ifdef USE_PREALLOC_MEM
+void fillRemoteBlobs(RemoteHelper& remoteIE,
+    const std::vector<std::string>& inputFiles,
+    const size_t& batchSize,
+    const InferenceEngine::ConstInputsDataMap& info,
+    std::vector<InferReqWrap::Ptr> requests) {
+    size_t width;
+    size_t height;
+    remoteIE.GetWxH(width, height);
+    const size_t nv12Size = width * height * 3 / 2 * batchSize;
+    std::unique_ptr<uint8_t> data(new uint8_t[nv12Size]);
+
+    if (info.size() != 1) {
+        THROW_IE_EXCEPTION << "Network input size is not 1(got " << info.size() << ")";
+    }
+
+    slog::info << "Network input '" << info.begin()->first << "' precision " << info.begin()->second->getTensorDesc().getPrecision()
+        << ", dimensions (" << info.begin()->second->getTensorDesc().getLayout() << "): ";
+    for (const auto& i : info.begin()->second->getTensorDesc().getDims()) {
+        slog::info << i << " ";
+    }
+    slog::info << slog::endl;
+
+    std::vector<std::string> imageFiles;
+
+    if (inputFiles.empty()) {
+        slog::warn << "No input files were given: all inputs will be filled with random values!" << slog::endl;
+    }
+    else {
+        imageFiles = filterFilesByExtensions(inputFiles, supported_image_extensions);
+        std::sort(std::begin(imageFiles), std::end(imageFiles));
+
+        auto imagesToBeUsed = batchSize * requests.size();
+        if (imagesToBeUsed > 0 && imageFiles.empty()) {
+            std::stringstream ss;
+            for (auto& ext : supported_image_extensions) {
+                if (!ss.str().empty()) {
+                    ss << ", ";
+                }
+                ss << ext;
+            }
+            slog::warn << "No supported image inputs found! Please check your file extensions: " << ss.str() << slog::endl;
+        }
+        else if (imagesToBeUsed > imageFiles.size()) {
+            slog::warn << "Some image input files will be duplicated: " << imagesToBeUsed <<
+                " files are required but only " << imageFiles.size() << " are provided" << slog::endl;
+        }
+        else if (imagesToBeUsed < imageFiles.size()) {
+            slog::warn << "Some image input files will be ignored: only " << imagesToBeUsed <<
+                " are required from " << imageFiles.size() << slog::endl;
+        }
+    }
+
+    const auto& rgbFrameTensor =
+        TensorDesc(Precision::U8, { batchSize, 3, height, width }, Layout::NCHW);
+    Blob::Ptr inputBlob = make_blob_with_precision(rgbFrameTensor);
+    inputBlob->allocate();
+
+    for (size_t requestId = 0; requestId < requests.size(); requestId++) {
+        slog::info << "Infer Request " << requestId << " filling" << slog::endl;
+
+        size_t imageInputId = 0;
+        for (const ConstInputsDataMap::value_type& item : info) {
+            auto request = requests.at(requestId);
+            if (!imageFiles.empty()) {
+                // Fill with Images
+                fillBlobImage(inputBlob, imageFiles, batchSize, *item.second, requestId, imageInputId++, 1);
+            }
+            else {
+                // Fill random
+                slog::info << "Fill input '" << item.first << "' with random values ("
+                    << "image is expected)" << slog::endl;
+                if (item.second->getPrecision() == InferenceEngine::Precision::U8) {
+                    fillBlobRandom<uint8_t>(inputBlob);
+                }
+                else {
+                    THROW_IE_EXCEPTION << "Input precision is not supported for " << item.first;
+                }
+            }
+            MemoryBlob::Ptr minput = as<MemoryBlob>(inputBlob);
+            // locked memory holder should be alive all time while access to its buffer happens
+            auto minputHolder = minput->rmap();
+            auto inputBlobData = minputHolder.as<uint8_t*>();
+
+            BGR2NV12(inputBlobData, width, height, batchSize, data.get());
+            {
+                std::string name(R"(D:\lc\Work\kmb-plugin\temp\validation_set\src\validation_set\224x224\cat3.yuv)");
+                std::ifstream f(name, std::ios_base::binary);
+                if (!f.good()) throw "err open";
+                f.read(reinterpret_cast<char*>(data.get()), width * height * 3 / 2);
+            }
+            remoteIE.UpdateRequestRemoteBlob(info, request, data.get(), nv12Size);
+        }
+    }
+}
+#endif

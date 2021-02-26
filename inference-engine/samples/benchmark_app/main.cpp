@@ -24,6 +24,7 @@
 #include "statistics_report.hpp"
 #include "inputs_filling.hpp"
 #include "utils.hpp"
+#include "remote_helper.hpp"
 
 using namespace InferenceEngine;
 
@@ -75,6 +76,11 @@ bool ParseAndCheckCommandLine(int argc, char *argv[]) {
 
         throw std::logic_error(err);
     }
+#ifdef USE_PREALLOC_MEM
+    if (FLAGS_use_prealloc_mem && isNetworkCompiled == false) {
+        throw std::logic_error("When using remote memory mode model must be compiled.");
+    }
+#endif    
     return true;
 }
 
@@ -117,7 +123,13 @@ T getMedianValue(const std::vector<T> &vec) {
 int main(int argc, char *argv[]) {
     std::shared_ptr<StatisticsReport> statistics;
     try {
+        Core ie;
         ExecutableNetwork exeNetwork;
+
+#ifdef USE_PREALLOC_MEM
+        RemoteHelper remoteIE;
+        remoteIE.Init();
+#endif
 
         // ----------------- 1. Parsing and validating input arguments -------------------------------------------------
         next_step();
@@ -170,7 +182,6 @@ int main(int argc, char *argv[]) {
         // ----------------- 2. Loading the Inference Engine -----------------------------------------------------------
         next_step();
 
-        Core ie;
         if (FLAGS_d.find("CPU") != std::string::npos && !FLAGS_l.empty()) {
             // CPU (MKLDNN) extensions is loaded as a shared library and passed as a pointer to base extension
             const auto extension_ptr = InferenceEngine::make_so_pointer<InferenceEngine::IExtension>(FLAGS_l);
@@ -409,7 +420,16 @@ int main(int argc, char *argv[]) {
             // ----------------- 7. Loading the model to the device --------------------------------------------------------
             next_step();
             auto startTime = Time::now();
+#ifdef USE_PREALLOC_MEM
+            if (FLAGS_use_prealloc_mem == false) {
+                exeNetwork = ie.ImportNetwork(FLAGS_m, device_name, {});
+            }
+            else {
+                exeNetwork = remoteIE.Create(ie, FLAGS_m);
+            }
+#else
             exeNetwork = ie.ImportNetwork(FLAGS_m, device_name, {});
+#endif
             auto duration_ms = double_to_string(get_total_ms_time(startTime));
             slog::info << "Import network took " << duration_ms << " ms" << slog::endl;
             if (statistics)
@@ -496,7 +516,16 @@ int main(int argc, char *argv[]) {
 
         InferRequestsQueue inferRequestsQueue(exeNetwork, nireq);
         const InferenceEngine::ConstInputsDataMap info(exeNetwork.GetInputsInfo());
+#ifdef USE_PREALLOC_MEM
+        if (FLAGS_use_prealloc_mem == false) {
+            fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);
+        }
+        else {
+            fillRemoteBlobs(remoteIE, inputFiles, batchSize, info, inferRequestsQueue.requests);
+        }
+#else
         fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);
+#endif
 
         // ----------------- 10. Measuring performance ------------------------------------------------------------------
         size_t progressCnt = 0;
