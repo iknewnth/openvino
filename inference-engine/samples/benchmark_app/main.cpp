@@ -80,7 +80,7 @@ bool ParseAndCheckCommandLine(int argc, char *argv[]) {
     if (FLAGS_use_prealloc_mem && isNetworkCompiled == false) {
         throw std::logic_error("When using remote memory mode model must be compiled.");
     }
-#endif    
+#endif
     return true;
 }
 
