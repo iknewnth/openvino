@@ -21,12 +21,11 @@
 #include "RemoteMemory.h"
 #include "hddl2_params.hpp"
 #include "ie_compound_blob.h"
-#include "../../src/plugin_api/blob_factory.hpp"
 
 using namespace InferenceEngine;
 
-#define REMOTE_IMAGE_WIDTH 224
-#define REMOTE_IMAGE_HEIGHT 224
+#define REMOTE_IMAGE_WIDTH 1920
+#define REMOTE_IMAGE_HEIGHT 1080
 
 class RemoteHelper::Impl
 {
@@ -78,139 +77,6 @@ public:
         return remoteFrame;
     }
 
-    // xxx
-    template<typename blobData_t>
-    std::vector<size_t> yieldTopClasses(const InferenceEngine::Blob::Ptr& resultBlob, size_t maxClasses) {
-        const blobData_t* unsortedRawData = resultBlob->cbuffer().as<const blobData_t*>();
-        // map key is a byte from raw data (quantized probability)
-        // map value is the index of that byte (class id)
-        std::multimap<blobData_t, size_t> sortedClassMap;
-        for (size_t classIndex = 0; classIndex < resultBlob->size(); classIndex++) {
-            blobData_t classProbability = unsortedRawData[classIndex];
-            std::pair<blobData_t, size_t> mapItem(classProbability, classIndex);
-            sortedClassMap.insert(mapItem);
-        }
-
-        std::vector<size_t> topClasses;
-        for (size_t classCounter = 0; classCounter < maxClasses; classCounter++) {
-            typename std::multimap<blobData_t, size_t>::reverse_iterator classIter = sortedClassMap.rbegin();
-            std::advance(classIter, classCounter);
-            topClasses.push_back(classIter->second);
-        }
-
-        return topClasses;
-    }
-    void Test(InferReqWrap::Ptr& request, std::string modelPath,
-        void* data, size_t data_size, PreProcessInfo* preprocInfo) {
-
-        std::string outputBlobName;
-
-        // --- Reference Blob
-        //Blob::Ptr refBlob = ReferenceHelper::CalcCpuReferenceSingleOutput(modelPath, inputNV12Blob, preprocInfo);
-        Blob::Ptr refBlob;
-        {
-            Blob::Ptr inputBlob;// = make_blob_with_precision(rgbFrameTensor);
-            //inputBlob->allocate();
-            {
-                auto yPlane = InferenceEngine::make_shared_blob<uint8_t>(
-                    TensorDesc(Precision::U8, { 1, 1, _height, _width }, Layout::NHWC),
-                    (uint8_t*)data);
-
-                auto uvPlane = InferenceEngine::make_shared_blob<uint8_t>(
-                    TensorDesc(Precision::U8, { 1, 2, _height / 2, _width / 2 }, Layout::NHWC),
-                    (uint8_t*)data + _width * _height);
-
-                inputBlob = InferenceEngine::make_shared_blob<InferenceEngine::NV12Blob>(yPlane, uvPlane);
-            }
-            //{
-            //    MemoryBlob::Ptr minput = as<MemoryBlob>(inputBlob);
-            //    // locked memory holder should be alive all time while access to its buffer happens
-            //    auto minputHolder = minput->wmap();
-            //    auto inputBlobData = minputHolder.as<uint8_t*>();
-            //    memcpy(inputBlobData, data, data_size);
-            //}
-
-            std::cout << "Calculating reference on CPU (single output)..." << std::endl;
-            Core ie;
-            auto network = ie.ReadNetwork(modelPath);
-
-            OutputsDataMap outputs_info = network.getOutputsInfo();
-            const size_t NUM_OUTPUTS = 1;
-            if (outputs_info.size() != NUM_OUTPUTS) {
-                THROW_IE_EXCEPTION << "Number of outputs isn't equal to 1";
-            }
-            outputBlobName = outputs_info.begin()->first;
-
-            InputsDataMap input_info = network.getInputsInfo();
-            for (auto& item : input_info) {
-                auto input_data = item.second;
-                input_data->setPrecision(Precision::U8);
-            }
-
-            ExecutableNetwork executableNetwork = ie.LoadNetwork(network, "CPU");
-            InferRequest inferRequest = executableNetwork.CreateInferRequest();
-
-            auto inputBlobName = executableNetwork.GetInputsInfo().begin()->first;
-            if (preprocInfo != nullptr) {
-                inferRequest.SetBlob(inputBlobName, inputBlob, *preprocInfo);
-            }
-            else {
-                inferRequest.SetBlob(inputBlobName, inputBlob);
-            }
-
-            ConstOutputsDataMap output_info = executableNetwork.GetOutputsInfo();
-            for (const auto& output : output_info) {
-                const auto outputBlobName = output.first;
-                auto output_blob = make_blob_with_precision(output.second->getTensorDesc());
-                output_blob->allocate();
-                inferRequest.SetBlob(outputBlobName, output_blob);
-            }
-
-            inferRequest.Infer();
-
-            refBlob = inferRequest.GetBlob(outputBlobName);
-        }
-        // test result
-        request->infer();
-        // --- Get output
-        auto outputBlob = request->getBlob(outputBlobName);
-
-        //Comparators::compareTopClassesUnordered(
-        //    outputBlob, refBlob, 4);
-        {
-            size_t maxClasses = 14;
-            std::vector<size_t> outTopClasses, refTopClasses;
-            switch (outputBlob->getTensorDesc().getPrecision()) {
-            case InferenceEngine::Precision::U8:
-                outTopClasses = yieldTopClasses<uint8_t>(outputBlob, maxClasses);
-                refTopClasses = yieldTopClasses<uint8_t>(refBlob, maxClasses);
-                break;
-            case InferenceEngine::Precision::FP32:
-                outTopClasses = yieldTopClasses<float>(outputBlob, maxClasses);
-                refTopClasses = yieldTopClasses<float>(refBlob, maxClasses);
-                break;
-            default:
-                throw std::runtime_error("compareTopClasses: only U8 and FP32 are supported");
-            }
-            std::ostringstream logStream;
-            logStream << "out: ";
-            for (size_t classId = 0; classId < maxClasses; classId++) {
-                logStream << outTopClasses[classId] << " ";
-            }
-
-            logStream << std::endl << "ref: ";
-            for (size_t classId = 0; classId < maxClasses; classId++) {
-                logStream << refTopClasses[classId] << " ";
-            }
-            auto ret = std::is_permutation(outTopClasses.begin(), outTopClasses.end(),
-                refTopClasses.begin());
-            if(!ret){
-                std::cout << "error result: " << logStream.str() << std::endl;
-            }
-        }
-    }
-    // xxx end
-
     void UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info,
         InferReqWrap::Ptr& request,
         void* data,
@@ -241,10 +107,6 @@ public:
 
         // 3, set remote NV12 blob with preprocessing information
         request->setBlob(inputName, remoteBlobROIPtr, preprocInfo);
-
-        // xxx
-        Test(request, R"(D:\lc\Work\kmb-plugin\temp\models\src\models\KMB_models\INT8\public\ResNet-50\resnet50_uint8_int8_weights_pertensor.xml)", data, data_size, &preprocInfo);
-        // xxx end
     }
 
     void GetWxH(size_t& width, size_t& height) {

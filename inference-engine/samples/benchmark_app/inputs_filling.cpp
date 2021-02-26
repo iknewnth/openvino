@@ -412,12 +412,6 @@ void fillRemoteBlobs(RemoteHelper& remoteIE,
             auto inputBlobData = minputHolder.as<uint8_t*>();
 
             BGR2NV12(inputBlobData, width, height, batchSize, data.get());
-            {
-                std::string name(R"(D:\lc\Work\kmb-plugin\temp\validation_set\src\validation_set\224x224\cat3.yuv)");
-                std::ifstream f(name, std::ios_base::binary);
-                if (!f.good()) throw "err open";
-                f.read(reinterpret_cast<char*>(data.get()), width * height * 3 / 2);
-            }
             remoteIE.UpdateRequestRemoteBlob(info, request, data.get(), nv12Size);
         }
     }

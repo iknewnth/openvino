@@ -97,7 +97,7 @@ static const char load_config_message[] = "Optional. Path to XML/YAML/JSON file 
 static const char dump_config_message[] = "Optional. Path to XML/YAML/JSON file to dump IE parameters, which were set by application.";
 #endif
 
-#ifdef USE_REMOTE_MEM
+#ifdef USE_PREALLOC_MEM
 // @brief message for preallocing memory option
 static const char use_prealloc_mem_message[] = "Optional. Prealloc remote memory in xBay to execute infer request.";
 #endif
@@ -248,6 +248,9 @@ static void showUsage() {
     std::cout << "    -t                        " << execution_time_message << std::endl;
     std::cout << "    -progress                 " << progress_message << std::endl;
     std::cout << "    -shape                    " << shape_message << std::endl;
+#ifdef USE_PREALLOC_MEM
+    std::cout << "    -use_prealloc_mem         " << use_prealloc_mem_message << std::endl;
+#endif
     std::cout << std::endl << "  device-specific performance options:" << std::endl;
     std::cout << "    -nstreams \"<integer>\"     " << infer_num_streams_message << std::endl;
     std::cout << "    -nthreads \"<integer>\"     " << infer_num_threads_message << std::endl;
@@ -261,9 +264,6 @@ static void showUsage() {
 #ifdef USE_OPENCV
     std::cout << "    -dump_config              " << dump_config_message << std::endl;
     std::cout << "    -load_config              " << load_config_message << std::endl;
-#endif
-#ifdef USE_REMOTE_MEM
-    std::cout << "    -use_prealloc_mem           " << use_prealloc_mem_message << std::endl;
 #endif
     std::cout << "    -qb                       " << gna_qb_message << std::endl;
     std::cout << "    -ip                          <value>     "   << inputs_precision_message     << std::endl;
