@@ -11,8 +11,7 @@
 #include <inference_engine.hpp>
 #include "infer_request_wrap.hpp"
 
-class RemoteHelper
-{
+class RemoteHelper {
     class Impl;
     std::unique_ptr<Impl> _impl;
 public:

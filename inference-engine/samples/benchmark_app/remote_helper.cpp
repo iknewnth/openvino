@@ -27,8 +27,7 @@ using namespace InferenceEngine;
 #define REMOTE_IMAGE_WIDTH 1920
 #define REMOTE_IMAGE_HEIGHT 1080
 
-class RemoteHelper::Impl
-{
+class RemoteHelper::Impl {
     WorkloadID _workloadId = -1;
     HddlUnite::WorkloadContext::Ptr _context;
     RemoteContext::Ptr _contextPtr;
@@ -119,7 +118,6 @@ RemoteHelper::RemoteHelper() : _impl(new RemoteHelper::Impl()) {
 }
 
 RemoteHelper::~RemoteHelper() {
-
 }
 
 void RemoteHelper::Init() {

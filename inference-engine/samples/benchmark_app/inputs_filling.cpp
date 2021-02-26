@@ -354,8 +354,7 @@ void fillRemoteBlobs(RemoteHelper& remoteIE,
 
     if (inputFiles.empty()) {
         slog::warn << "No input files were given: all inputs will be filled with random values!" << slog::endl;
-    }
-    else {
+    } else {
         imageFiles = filterFilesByExtensions(inputFiles, supported_image_extensions);
         std::sort(std::begin(imageFiles), std::end(imageFiles));
 
@@ -369,12 +368,10 @@ void fillRemoteBlobs(RemoteHelper& remoteIE,
                 ss << ext;
             }
             slog::warn << "No supported image inputs found! Please check your file extensions: " << ss.str() << slog::endl;
-        }
-        else if (imagesToBeUsed > imageFiles.size()) {
+        } else if (imagesToBeUsed > imageFiles.size()) {
             slog::warn << "Some image input files will be duplicated: " << imagesToBeUsed <<
                 " files are required but only " << imageFiles.size() << " are provided" << slog::endl;
-        }
-        else if (imagesToBeUsed < imageFiles.size()) {
+        } else if (imagesToBeUsed < imageFiles.size()) {
             slog::warn << "Some image input files will be ignored: only " << imagesToBeUsed <<
                 " are required from " << imageFiles.size() << slog::endl;
         }
@@ -394,15 +391,13 @@ void fillRemoteBlobs(RemoteHelper& remoteIE,
             if (!imageFiles.empty()) {
                 // Fill with Images
                 fillBlobImage(inputBlob, imageFiles, batchSize, *item.second, requestId, imageInputId++, 1);
-            }
-            else {
+            } else {
                 // Fill random
                 slog::info << "Fill input '" << item.first << "' with random values ("
                     << "image is expected)" << slog::endl;
                 if (item.second->getPrecision() == InferenceEngine::Precision::U8) {
                     fillBlobRandom<uint8_t>(inputBlob);
-                }
-                else {
+                } else {
                     THROW_IE_EXCEPTION << "Input precision is not supported for " << item.first;
                 }
             }

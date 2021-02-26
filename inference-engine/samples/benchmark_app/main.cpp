@@ -423,8 +423,7 @@ int main(int argc, char *argv[]) {
 #ifdef USE_PREALLOC_MEM
             if (FLAGS_use_prealloc_mem == false) {
                 exeNetwork = ie.ImportNetwork(FLAGS_m, device_name, {});
-            }
-            else {
+            } else {
                 exeNetwork = remoteIE.Create(ie, FLAGS_m);
             }
 #else
@@ -519,8 +518,7 @@ int main(int argc, char *argv[]) {
 #ifdef USE_PREALLOC_MEM
         if (FLAGS_use_prealloc_mem == false) {
             fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);
-        }
-        else {
+        } else {
             fillRemoteBlobs(remoteIE, inputFiles, batchSize, info, inferRequestsQueue.requests);
         }
 #else
