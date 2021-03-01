@@ -400,8 +400,7 @@ int main(int argc, char *argv[]) {
 #ifdef USE_REMOTE_MEM
             if (FLAGS_use_remote_mem == false) {
                 exeNetwork = ie.LoadNetwork(cnnNetwork, device_name);
-            }
-            else {
+            } else {
                 exeNetwork = ie.LoadNetwork(cnnNetwork, remoteHelper.getRemoteContext());
             }
 #else
@@ -525,11 +524,7 @@ int main(int argc, char *argv[]) {
         InferRequestsQueue inferRequestsQueue(exeNetwork, nireq);
         const InferenceEngine::ConstInputsDataMap info(exeNetwork.GetInputsInfo());
 #ifdef USE_REMOTE_MEM
-        if (FLAGS_use_remote_mem == false) {
-            fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);
-        } else {
-            fillRemoteBlobs(remoteHelper, inputFiles, batchSize, info, inferRequestsQueue.requests);
-        }
+        fillBlobs(remoteHelper, inputFiles, batchSize, info, inferRequestsQueue.requests, FLAGS_use_remote_mem);
 #else
         fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);
 #endif

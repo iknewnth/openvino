@@ -33,13 +33,15 @@ static bool isImageInfo(const T &blob) {
     return (channels >= 2);
 }
 
-void fillBlobs(const std::vector<std::string>& inputFiles,
-               const size_t& batchSize,
-               const InferenceEngine::ConstInputsDataMap& info,
+#ifdef USE_REMOTE_MEM
+void fillBlobs(RemoteHelper &remoteHelper,
+               const std::vector<std::string> &inputFiles,
+               const size_t &batchSize,
+               const InferenceEngine::ConstInputsDataMap &info,
+               std::vector<InferReqWrap::Ptr> requests, bool preallocImage);
+#else
+void fillBlobs(const std::vector<std::string> &inputFiles,
+               const size_t &batchSize,
+               const InferenceEngine::ConstInputsDataMap &info,
                std::vector<InferReqWrap::Ptr> requests);
-
-void fillRemoteBlobs(RemoteHelper& remoteIE,
-               const std::vector<std::string>& inputFiles,
-               const size_t& batchSize,
-               const InferenceEngine::ConstInputsDataMap& info,
-               std::vector<InferReqWrap::Ptr> requests);
+#endif

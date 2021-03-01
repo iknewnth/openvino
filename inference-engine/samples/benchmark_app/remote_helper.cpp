@@ -57,7 +57,7 @@ public:
         return remoteFrame;
     }
 
-    void UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info,
+    void PreallocRemoteMem(const InferenceEngine::ConstInputsDataMap& info,
         InferReqWrap::Ptr& request,
         const Blob::Ptr& inputBlob) {
         MemoryBlob::Ptr minput = as<MemoryBlob>(inputBlob);
@@ -95,8 +95,8 @@ void RemoteHelper::Init(InferenceEngine::Core& ie) {
     _impl->Init(ie);
 }
 
-void RemoteHelper::UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info, InferReqWrap::Ptr& request, const Blob::Ptr& inputBlob) {
-    _impl->UpdateRequestRemoteBlob(info, request, inputBlob);
+void RemoteHelper::PreallocRemoteMem(const InferenceEngine::ConstInputsDataMap& info, InferReqWrap::Ptr& request, const Blob::Ptr& inputBlob) {
+    _impl->PreallocRemoteMem(info, request, inputBlob);
 }
 
 InferenceEngine::RemoteContext::Ptr RemoteHelper::getRemoteContext() {

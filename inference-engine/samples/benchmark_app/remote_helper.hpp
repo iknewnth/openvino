@@ -19,7 +19,7 @@ public:
     ~RemoteHelper();
 
     void Init(InferenceEngine::Core& ie);
-    void UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info,
+    void PreallocRemoteMem(const InferenceEngine::ConstInputsDataMap& info,
         InferReqWrap::Ptr& request,
         const InferenceEngine::Blob::Ptr& inputBlob);
     InferenceEngine::RemoteContext::Ptr getRemoteContext();
