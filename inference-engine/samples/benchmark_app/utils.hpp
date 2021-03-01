@@ -23,5 +23,4 @@ void dump_config(const std::string& filename,
                  const std::map<std::string, std::map<std::string, std::string>>& config);
 void load_config(const std::string& filename,
                  std::map<std::string, std::map<std::string, std::string>>& config);
-void BGR2NV12(uint8_t* src, size_t width, size_t height, size_t imageNum, uint8_t* dst);
 #endif

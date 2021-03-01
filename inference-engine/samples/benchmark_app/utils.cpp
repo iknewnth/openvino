@@ -16,7 +16,6 @@
 
 #ifdef USE_OPENCV
 #include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
 #endif
 
 uint32_t deviceDefaultDeviceDurationInSeconds(const std::string& device) {
@@ -204,29 +203,6 @@ void load_config(const std::string& filename,
             auto item = *iit;
             config[device.name()][item.name()] = item.string();
         }
-    }
-}
-
-void BGR2NV12(uint8_t* src, size_t width, size_t height, size_t imageNum, uint8_t* dst) {
-    const size_t imageSize = width * height;
-
-    /** Iterate over all input images **/
-    for (size_t imageId = 0; imageId < imageNum; ++imageId) {
-        cv::Mat matB(height, width, CV_8UC1, &src[(imageId * 3 + 0) * imageSize]);
-        cv::Mat matG(height, width, CV_8UC1, &src[(imageId * 3 + 1) * imageSize]);
-        cv::Mat matR(height, width, CV_8UC1, &src[(imageId * 3 + 2) * imageSize]);
-        cv::Mat matSrc;
-        cv::merge(std::vector<cv::Mat> { matB, matG, matR }, matSrc);
-        cv::Mat matYUV;
-        cv::cvtColor(matSrc, matYUV, cv::COLOR_BGR2YUV_I420);
-        // copy y
-        memcpy(dst + imageSize * 3 / 2 * imageId, matYUV.data, imageSize);
-        cv::Mat matU(height / 2, width / 2, CV_8UC1, matYUV.data + imageSize);
-        cv::Mat matV(height / 2, width / 2, CV_8UC1, matYUV.data + imageSize * 5 / 4);
-        cv::Mat matUV;
-        cv::merge(std::vector<cv::Mat> { matU, matV }, matUV);
-        // copy uv
-        memcpy(dst + (imageSize * 3 / 2 + 1) * imageId, matUV.data, imageSize / 2);
     }
 }
 #endif

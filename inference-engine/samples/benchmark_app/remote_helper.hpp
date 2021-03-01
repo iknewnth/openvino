@@ -18,11 +18,9 @@ public:
     RemoteHelper();
     ~RemoteHelper();
 
-    void Init();
-    InferenceEngine::ExecutableNetwork Create(InferenceEngine::Core& ie, const std::string& graphPath);
+    void Init(InferenceEngine::Core& ie);
     void UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info,
         InferReqWrap::Ptr& request,
-        void* data,
-        size_t data_size);
-    void GetWxH(size_t& width, size_t& height);
+        const InferenceEngine::Blob::Ptr& inputBlob);
+    InferenceEngine::RemoteContext::Ptr getRemoteContext();
 };

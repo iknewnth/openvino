@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#ifdef USE_PREALLOC_MEM
+#ifdef USE_REMOTE_MEM
 #include <string>
 #include <algorithm>
 #include <utility>
@@ -19,47 +19,28 @@
 #include "remote_helper.hpp"
 #include "WorkloadContext.h"
 #include "RemoteMemory.h"
-#include "hddl2_params.hpp"
+#include "hddl2/hddl2_params.hpp"
 #include "ie_compound_blob.h"
 
 using namespace InferenceEngine;
-
-#define REMOTE_IMAGE_WIDTH 1920
-#define REMOTE_IMAGE_HEIGHT 1080
 
 class RemoteHelper::Impl {
     WorkloadID _workloadId = -1;
     HddlUnite::WorkloadContext::Ptr _context;
     RemoteContext::Ptr _contextPtr;
-    size_t _width = REMOTE_IMAGE_WIDTH;
-    size_t _height = REMOTE_IMAGE_HEIGHT;
-    std::string _modelPath;
 
 public:
-    void Init() {
+    void Init(InferenceEngine::Core& ie) {
         _context = HddlUnite::createWorkloadContext();
         _context->setContext(_workloadId);
         auto ret = registerWorkloadContext(_context);
         if (ret != HddlStatusCode::HDDL_OK) {
             THROW_IE_EXCEPTION << "registerWorkloadContext failed with " << ret;
         }
-    }
 
-    ExecutableNetwork Create(Core& ie, const std::string& graphPath) {
-        _modelPath = graphPath;
         // init context map and create context based on it
         ParamMap paramMap = { {HDDL2_PARAM_KEY(WORKLOAD_CONTEXT_ID), _workloadId} };
         _contextPtr = ie.CreateContext("VPUX", paramMap);
-
-        //
-        // import network providing context as input to bind to context
-        //
-        std::filebuf blobFile;
-        if (!blobFile.open(graphPath, std::ios::in | std::ios::binary)) {
-            THROW_IE_EXCEPTION << "Could not open file: " << graphPath;
-        }
-        std::istream graphBlob(&blobFile);
-        return ie.ImportNetwork(graphBlob, _contextPtr);
     }
 
     HddlUnite::RemoteMemory::Ptr allocateRemoteMemory(const void* data, const size_t& dataSize) {
@@ -78,39 +59,29 @@ public:
 
     void UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info,
         InferReqWrap::Ptr& request,
-        void* data,
-        size_t data_size) {
+        const Blob::Ptr& inputBlob) {
+        MemoryBlob::Ptr minput = as<MemoryBlob>(inputBlob);
+        const TensorDesc& inputTensor = minput->getTensorDesc();
+        // locked memory holder should be alive all time while access to its buffer happens
+        auto minputHolder = minput->rmap();
+        auto inputBlobData = minputHolder.as<uint8_t*>();
+
         // 1, allocate memory with HddlUnite on device
-        auto remoteMemory = allocateRemoteMemory(data, data_size);
+        auto remoteMemory = allocateRemoteMemory(inputBlobData, minput->byteSize());
 
         // 2, create remote blob by using already exists remote memory and specify color format of it
-        ParamMap blobParamMap = { {HDDL2_PARAM_KEY(REMOTE_MEMORY), remoteMemory},
-            {HDDL2_PARAM_KEY(COLOR_FORMAT), ColorFormat::NV12} };
-
-        TensorDesc inputTensor = TensorDesc(Precision::U8, { 1, 3, _height, _width }, Layout::NCHW);
+        ParamMap blobParamMap = { {HDDL2_PARAM_KEY(REMOTE_MEMORY), remoteMemory} };
         RemoteBlob::Ptr remoteBlobPtr = _contextPtr->CreateBlob(inputTensor, blobParamMap);
         if (remoteBlobPtr == nullptr) {
             THROW_IE_EXCEPTION << "CreateBlob failed.";
         }
 
-        // 2.1, set preprocessing of remote blob
-        const std::string inputName = info.begin()->first;
-        PreProcessInfo preprocInfo = request->getPreProcess(inputName);
-        preprocInfo.setResizeAlgorithm(RESIZE_BILINEAR);
-        preprocInfo.setColorFormat(ColorFormat::NV12);
-
-        // 2.2, create roi blob
-        ROI roiIE;
-        roiIE = ROI{ 0, 0, 0, _width, _height };
-        auto remoteBlobROIPtr = remoteBlobPtr->createROI(roiIE);
-
-        // 3, set remote NV12 blob with preprocessing information
-        request->setBlob(inputName, remoteBlobROIPtr, preprocInfo);
+        // 3, set remote blob
+        request->setBlob(info.begin()->first, remoteBlobPtr);
     }
 
-    void GetWxH(size_t& width, size_t& height) {
-        width = _width;
-        height = _height;
+    RemoteContext::Ptr getRemoteContext() {
+        return _contextPtr;
     }
 };
 
@@ -120,19 +91,15 @@ RemoteHelper::RemoteHelper() : _impl(new RemoteHelper::Impl()) {
 RemoteHelper::~RemoteHelper() {
 }
 
-void RemoteHelper::Init() {
-    _impl->Init();
+void RemoteHelper::Init(InferenceEngine::Core& ie) {
+    _impl->Init(ie);
 }
 
-InferenceEngine::ExecutableNetwork RemoteHelper::Create(InferenceEngine::Core& ie, const std::string& graphPath) {
-    return _impl->Create(ie, graphPath);
+void RemoteHelper::UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info, InferReqWrap::Ptr& request, const Blob::Ptr& inputBlob) {
+    _impl->UpdateRequestRemoteBlob(info, request, inputBlob);
 }
 
-void RemoteHelper::UpdateRequestRemoteBlob(const InferenceEngine::ConstInputsDataMap& info, InferReqWrap::Ptr& request, void* data, size_t data_size) {
-    _impl->UpdateRequestRemoteBlob(info, request, data, data_size);
-}
-
-void RemoteHelper::GetWxH(size_t& width, size_t& height) {
-    _impl->GetWxH(width, height);
+InferenceEngine::RemoteContext::Ptr RemoteHelper::getRemoteContext() {
+    return _impl->getRemoteContext();
 }
 #endif

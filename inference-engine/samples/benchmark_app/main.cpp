@@ -76,11 +76,6 @@ bool ParseAndCheckCommandLine(int argc, char *argv[]) {
 
         throw std::logic_error(err);
     }
-#ifdef USE_PREALLOC_MEM
-    if (FLAGS_use_prealloc_mem && isNetworkCompiled == false) {
-        throw std::logic_error("When using remote memory mode model must be compiled.");
-    }
-#endif
     return true;
 }
 
@@ -126,9 +121,9 @@ int main(int argc, char *argv[]) {
         Core ie;
         ExecutableNetwork exeNetwork;
 
-#ifdef USE_PREALLOC_MEM
-        RemoteHelper remoteIE;
-        remoteIE.Init();
+#ifdef USE_REMOTE_MEM
+        RemoteHelper remoteHelper;
+        remoteHelper.Init(ie);
 #endif
 
         // ----------------- 1. Parsing and validating input arguments -------------------------------------------------
@@ -402,7 +397,16 @@ int main(int argc, char *argv[]) {
             // ----------------- 7. Loading the model to the device --------------------------------------------------------
             next_step();
             startTime = Time::now();
+#ifdef USE_REMOTE_MEM
+            if (FLAGS_use_remote_mem == false) {
+                exeNetwork = ie.LoadNetwork(cnnNetwork, device_name);
+            }
+            else {
+                exeNetwork = ie.LoadNetwork(cnnNetwork, remoteHelper.getRemoteContext());
+            }
+#else
             exeNetwork = ie.LoadNetwork(cnnNetwork, device_name);
+#endif
             duration_ms = double_to_string(get_total_ms_time(startTime));
             slog::info << "Load network took " << duration_ms << " ms" << slog::endl;
             if (statistics)
@@ -420,11 +424,16 @@ int main(int argc, char *argv[]) {
             // ----------------- 7. Loading the model to the device --------------------------------------------------------
             next_step();
             auto startTime = Time::now();
-#ifdef USE_PREALLOC_MEM
-            if (FLAGS_use_prealloc_mem == false) {
+#ifdef USE_REMOTE_MEM
+            if (FLAGS_use_remote_mem == false) {
                 exeNetwork = ie.ImportNetwork(FLAGS_m, device_name, {});
             } else {
-                exeNetwork = remoteIE.Create(ie, FLAGS_m);
+                std::filebuf blobFile;
+                if (!blobFile.open(FLAGS_m, std::ios::in | std::ios::binary)) {
+                    THROW_IE_EXCEPTION << "Could not open file: " << FLAGS_m;
+                }
+                std::istream graphBlob(&blobFile);
+                exeNetwork = ie.ImportNetwork(graphBlob, remoteHelper.getRemoteContext());
             }
 #else
             exeNetwork = ie.ImportNetwork(FLAGS_m, device_name, {});
@@ -515,11 +524,11 @@ int main(int argc, char *argv[]) {
 
         InferRequestsQueue inferRequestsQueue(exeNetwork, nireq);
         const InferenceEngine::ConstInputsDataMap info(exeNetwork.GetInputsInfo());
-#ifdef USE_PREALLOC_MEM
-        if (FLAGS_use_prealloc_mem == false) {
+#ifdef USE_REMOTE_MEM
+        if (FLAGS_use_remote_mem == false) {
             fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);
         } else {
-            fillRemoteBlobs(remoteIE, inputFiles, batchSize, info, inferRequestsQueue.requests);
+            fillRemoteBlobs(remoteHelper, inputFiles, batchSize, info, inferRequestsQueue.requests);
         }
 #else
         fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);

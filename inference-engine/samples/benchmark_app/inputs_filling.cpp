@@ -327,21 +327,19 @@ void fillBlobs(const std::vector<std::string>& inputFiles,
     }
 }
 
-#ifdef USE_PREALLOC_MEM
-void fillRemoteBlobs(RemoteHelper& remoteIE,
+#ifdef USE_REMOTE_MEM
+void fillRemoteBlobs(RemoteHelper& remoteHelper,
     const std::vector<std::string>& inputFiles,
     const size_t& batchSize,
     const InferenceEngine::ConstInputsDataMap& info,
     std::vector<InferReqWrap::Ptr> requests) {
-    size_t width;
-    size_t height;
-    remoteIE.GetWxH(width, height);
-    const size_t nv12Size = width * height * 3 / 2 * batchSize;
-    std::unique_ptr<uint8_t> data(new uint8_t[nv12Size]);
-
     if (info.size() != 1) {
         THROW_IE_EXCEPTION << "Network input size is not 1(got " << info.size() << ")";
     }
+
+    auto desc = info.begin()->second->getTensorDesc();
+    auto width = getTensorWidth(desc);
+    auto height = getTensorHeight(desc);
 
     slog::info << "Network input '" << info.begin()->first << "' precision " << info.begin()->second->getTensorDesc().getPrecision()
         << ", dimensions (" << info.begin()->second->getTensorDesc().getLayout() << "): ";
@@ -401,13 +399,8 @@ void fillRemoteBlobs(RemoteHelper& remoteIE,
                     THROW_IE_EXCEPTION << "Input precision is not supported for " << item.first;
                 }
             }
-            MemoryBlob::Ptr minput = as<MemoryBlob>(inputBlob);
-            // locked memory holder should be alive all time while access to its buffer happens
-            auto minputHolder = minput->rmap();
-            auto inputBlobData = minputHolder.as<uint8_t*>();
 
-            BGR2NV12(inputBlobData, width, height, batchSize, data.get());
-            remoteIE.UpdateRequestRemoteBlob(info, request, data.get(), nv12Size);
+            remoteHelper.UpdateRequestRemoteBlob(info, request, inputBlob);
         }
     }
 }

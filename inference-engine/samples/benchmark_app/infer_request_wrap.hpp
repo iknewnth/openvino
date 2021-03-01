@@ -65,8 +65,8 @@ public:
         return _request.GetBlob(name);
     }
 
-    void setBlob(const std::string& name, const InferenceEngine::Blob::Ptr& data, const InferenceEngine::PreProcessInfo& info) {
-        _request.SetBlob(name, data, info);
+    void setBlob(const std::string& name, const InferenceEngine::Blob::Ptr& data) {
+        _request.SetBlob(name, data);
     }
 
     const InferenceEngine::PreProcessInfo& getPreProcess(const std::string& name) const {

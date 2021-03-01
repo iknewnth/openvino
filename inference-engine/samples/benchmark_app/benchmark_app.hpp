@@ -97,9 +97,9 @@ static const char load_config_message[] = "Optional. Path to XML/YAML/JSON file 
 static const char dump_config_message[] = "Optional. Path to XML/YAML/JSON file to dump IE parameters, which were set by application.";
 #endif
 
-#ifdef USE_PREALLOC_MEM
+#ifdef USE_REMOTE_MEM
 // @brief message for preallocing memory option
-static const char use_prealloc_mem_message[] = "Optional. Prealloc remote memory in xBay to execute infer request.";
+static const char use_remote_mem_message[] = "Optional. Prealloc remote memory in device to execute infer request.";
 #endif
 
 static const char shape_message[] = "Optional. Set shape for input. For example, \"input1[1,3,224,224],input2[1,4]\" or \"[1,3,224,224]\""
@@ -202,9 +202,9 @@ DEFINE_string(load_config, "", load_config_message);
 DEFINE_string(dump_config, "", dump_config_message);
 #endif
 
-#ifdef USE_PREALLOC_MEM
+#ifdef USE_REMOTE_MEM
 /// @brief Define flag for using prealloc memory option <br>
-DEFINE_bool(use_prealloc_mem, false, use_prealloc_mem_message);
+DEFINE_bool(use_remote_mem, false, use_remote_mem_message);
 #endif
 
 /// @brief Define flag for input shape <br>
@@ -248,8 +248,8 @@ static void showUsage() {
     std::cout << "    -t                        " << execution_time_message << std::endl;
     std::cout << "    -progress                 " << progress_message << std::endl;
     std::cout << "    -shape                    " << shape_message << std::endl;
-#ifdef USE_PREALLOC_MEM
-    std::cout << "    -use_prealloc_mem         " << use_prealloc_mem_message << std::endl;
+#ifdef USE_REMOTE_MEM
+    std::cout << "    -use_remote_mem           " << use_remote_mem_message << std::endl;
 #endif
     std::cout << std::endl << "  device-specific performance options:" << std::endl;
     std::cout << "    -nstreams \"<integer>\"     " << infer_num_streams_message << std::endl;
