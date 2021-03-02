@@ -24,7 +24,7 @@
 #include "statistics_report.hpp"
 #include "inputs_filling.hpp"
 #include "utils.hpp"
-#include "remote_helper.hpp"
+#include "remotecontext_helper.hpp"
 
 using namespace InferenceEngine;
 
@@ -76,6 +76,11 @@ bool ParseAndCheckCommandLine(int argc, char *argv[]) {
 
         throw std::logic_error(err);
     }
+#ifdef USE_REMOTE_MEM
+    if (FLAGS_use_remote_mem && FLAGS_d != "VPUX") {
+        throw std::logic_error("Incorrect device name. Using remote memory feature must set device name to VPUX.");
+    }
+#endif
     return true;
 }
 
@@ -122,8 +127,7 @@ int main(int argc, char *argv[]) {
         ExecutableNetwork exeNetwork;
 
 #ifdef USE_REMOTE_MEM
-        RemoteHelper remoteHelper;
-        remoteHelper.Init(ie);
+        RemoteContextHelper remoteContextHelper;
 #endif
 
         // ----------------- 1. Parsing and validating input arguments -------------------------------------------------
@@ -298,6 +302,10 @@ int main(int argc, char *argv[]) {
 
                 if (isFlagSetInCommandLine("nthreads"))
                     device_config[GNA_CONFIG_KEY(LIB_N_THREADS)] = std::to_string(FLAGS_nthreads);
+#ifdef USE_REMOTE_MEM
+            } else if (device == "VPUX") {
+                remoteContextHelper.Init(ie);
+#endif
             } else {
                 std::vector<std::string> supported_config_keys = ie.GetMetric(device, METRIC_KEY(SUPPORTED_CONFIG_KEYS));
                 auto supported = [&] (const std::string& key) {
@@ -401,7 +409,7 @@ int main(int argc, char *argv[]) {
             if (FLAGS_use_remote_mem == false) {
                 exeNetwork = ie.LoadNetwork(cnnNetwork, device_name);
             } else {
-                exeNetwork = ie.LoadNetwork(cnnNetwork, remoteHelper.getRemoteContext());
+                exeNetwork = ie.LoadNetwork(cnnNetwork, remoteContextHelper.getRemoteContext());
             }
 #else
             exeNetwork = ie.LoadNetwork(cnnNetwork, device_name);
@@ -432,7 +440,7 @@ int main(int argc, char *argv[]) {
                     THROW_IE_EXCEPTION << "Could not open file: " << FLAGS_m;
                 }
                 std::istream graphBlob(&blobFile);
-                exeNetwork = ie.ImportNetwork(graphBlob, remoteHelper.getRemoteContext());
+                exeNetwork = ie.ImportNetwork(graphBlob, remoteContextHelper.getRemoteContext());
             }
 #else
             exeNetwork = ie.ImportNetwork(FLAGS_m, device_name, {});
@@ -524,7 +532,7 @@ int main(int argc, char *argv[]) {
         InferRequestsQueue inferRequestsQueue(exeNetwork, nireq);
         const InferenceEngine::ConstInputsDataMap info(exeNetwork.GetInputsInfo());
 #ifdef USE_REMOTE_MEM
-        fillBlobs(remoteHelper, inputFiles, batchSize, info, inferRequestsQueue.requests, FLAGS_use_remote_mem);
+        fillBlobs(remoteContextHelper, inputFiles, batchSize, info, inferRequestsQueue.requests, FLAGS_use_remote_mem);
 #else
         fillBlobs(inputFiles, batchSize, info, inferRequestsQueue.requests);
 #endif

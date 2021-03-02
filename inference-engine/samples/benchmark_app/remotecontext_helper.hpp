@@ -11,12 +11,12 @@
 #include <inference_engine.hpp>
 #include "infer_request_wrap.hpp"
 
-class RemoteHelper {
+class RemoteContextHelper {
     class Impl;
     std::unique_ptr<Impl> _impl;
 public:
-    RemoteHelper();
-    ~RemoteHelper();
+    RemoteContextHelper();
+    ~RemoteContextHelper();
 
     void Init(InferenceEngine::Core& ie);
     void PreallocRemoteMem(const InferenceEngine::ConstInputsDataMap& info,

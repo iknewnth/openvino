@@ -16,7 +16,7 @@
 #include <samples/slog.hpp>
 
 #include "utils.hpp"
-#include "remote_helper.hpp"
+#include "remotecontext_helper.hpp"
 #include "WorkloadContext.h"
 #include "RemoteMemory.h"
 #include "hddl2/hddl2_params.hpp"
@@ -24,10 +24,11 @@
 
 using namespace InferenceEngine;
 
-class RemoteHelper::Impl {
+class RemoteContextHelper::Impl {
     WorkloadID _workloadId = -1;
     HddlUnite::WorkloadContext::Ptr _context;
     RemoteContext::Ptr _contextPtr;
+    bool _init = false;
 
 public:
     void Init(InferenceEngine::Core& ie) {
@@ -41,6 +42,7 @@ public:
         // init context map and create context based on it
         ParamMap paramMap = { {HDDL2_PARAM_KEY(WORKLOAD_CONTEXT_ID), _workloadId} };
         _contextPtr = ie.CreateContext("VPUX", paramMap);
+        _init = true;
     }
 
     HddlUnite::RemoteMemory::Ptr allocateRemoteMemory(const void* data, const size_t& dataSize) {
@@ -60,6 +62,8 @@ public:
     void PreallocRemoteMem(const InferenceEngine::ConstInputsDataMap& info,
         InferReqWrap::Ptr& request,
         const Blob::Ptr& inputBlob) {
+        if (_init == false)
+            THROW_IE_EXCEPTION << "RemoteContextHelper did not init.";
         MemoryBlob::Ptr minput = as<MemoryBlob>(inputBlob);
         const TensorDesc& inputTensor = minput->getTensorDesc();
         // locked memory holder should be alive all time while access to its buffer happens
@@ -81,25 +85,27 @@ public:
     }
 
     RemoteContext::Ptr getRemoteContext() {
+        if (_init == false)
+            THROW_IE_EXCEPTION << "RemoteContextHelper did not init.";
         return _contextPtr;
     }
 };
 
-RemoteHelper::RemoteHelper() : _impl(new RemoteHelper::Impl()) {
+RemoteContextHelper::RemoteContextHelper() : _impl(new RemoteContextHelper::Impl()) {
 }
 
-RemoteHelper::~RemoteHelper() {
+RemoteContextHelper::~RemoteContextHelper() {
 }
 
-void RemoteHelper::Init(InferenceEngine::Core& ie) {
+void RemoteContextHelper::Init(InferenceEngine::Core& ie) {
     _impl->Init(ie);
 }
 
-void RemoteHelper::PreallocRemoteMem(const InferenceEngine::ConstInputsDataMap& info, InferReqWrap::Ptr& request, const Blob::Ptr& inputBlob) {
+void RemoteContextHelper::PreallocRemoteMem(const InferenceEngine::ConstInputsDataMap& info, InferReqWrap::Ptr& request, const Blob::Ptr& inputBlob) {
     _impl->PreallocRemoteMem(info, request, inputBlob);
 }
 
-InferenceEngine::RemoteContext::Ptr RemoteHelper::getRemoteContext() {
+InferenceEngine::RemoteContext::Ptr RemoteContextHelper::getRemoteContext() {
     return _impl->getRemoteContext();
 }
 #endif

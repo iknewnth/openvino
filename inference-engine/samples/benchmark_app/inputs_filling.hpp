@@ -11,7 +11,7 @@
 
 #include "infer_request_wrap.hpp"
 
-#include "remote_helper.hpp"
+#include "remotecontext_helper.hpp"
 
 template<typename T>
 static bool isImage(const T &blob) {
@@ -34,7 +34,7 @@ static bool isImageInfo(const T &blob) {
 }
 
 #ifdef USE_REMOTE_MEM
-void fillBlobs(RemoteHelper &remoteHelper,
+void fillBlobs(RemoteContextHelper &remoteContextHelper,
                const std::vector<std::string> &inputFiles,
                const size_t &batchSize,
                const InferenceEngine::ConstInputsDataMap &info,
