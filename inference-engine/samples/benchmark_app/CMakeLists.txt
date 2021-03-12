@@ -7,13 +7,13 @@ file (GLOB HDR ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
 
 find_package(HddlUnite QUIET)
 if(HddlUnite_FOUND)
-    # test hddl2_params.hpp
-    if(EXISTS ${KMBPLUGIN_HOME}/include/hddl2/hddl2_params.hpp)
+    # test kmb_plugin directory
+    if(EXISTS ${KMBPLUGIN_HOME}/include/)
         set(HDDL2_PARAMS_DIR ${KMBPLUGIN_HOME}/include/)
         add_definitions(-DUSE_REMOTE_MEM)
         set(HDDL2_DEP "HddlUnite::HddlUnite")
     else()
-        message(WARNING "hddl2_params.hpp could not find. Preallocating memory in remote device feature is disabled.")
+        message(WARNING "kmb_plugin/include could not find. Preallocating memory in remote device feature is disabled.")
         remove_definitions(-DUSE_REMOTE_MEM)
     endif()
 endif()
