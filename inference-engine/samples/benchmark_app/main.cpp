@@ -195,6 +195,11 @@ int main(int argc, char *argv[]) {
                 config["GPU"] = {};
             config["GPU"][CONFIG_KEY(CONFIG_FILE)] = FLAGS_c;
         }
+#ifdef USE_REMOTE_MEM
+        if (FLAGS_d.find("VPUX") != std::string::npos) {
+            remoteContextHelper.Init(ie);
+        }
+#endif
         if (config.count("GPU") && config.at("GPU").count(CONFIG_KEY(CONFIG_FILE))) {
             auto ext = config.at("GPU").at(CONFIG_KEY(CONFIG_FILE));
             ie.SetConfig({{ CONFIG_KEY(CONFIG_FILE), ext }}, "GPU");
@@ -302,10 +307,6 @@ int main(int argc, char *argv[]) {
 
                 if (isFlagSetInCommandLine("nthreads"))
                     device_config[GNA_CONFIG_KEY(LIB_N_THREADS)] = std::to_string(FLAGS_nthreads);
-#ifdef USE_REMOTE_MEM
-            } else if (device == "VPUX") {
-                remoteContextHelper.Init(ie);
-#endif
             } else {
                 std::vector<std::string> supported_config_keys = ie.GetMetric(device, METRIC_KEY(SUPPORTED_CONFIG_KEYS));
                 auto supported = [&] (const std::string& key) {
